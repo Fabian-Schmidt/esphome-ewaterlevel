@@ -1,0 +1,86 @@
+esphome:
+  name: ewaterlevel-calibrate-wt32-sc01
+
+external_components:
+  - source: github://Fabian-Schmidt/esphome-ewaterlevel
+    components: ["ewaterlevel_ble"]
+
+esp32:
+  board: esp32dev
+  
+logger:
+  level: INFO
+
+esp32_ble_tracker:
+  scan_parameters:
+    interval: 10ms
+    window: 10ms
+    active: false
+
+sensor:
+  - platform: ewaterlevel_ble
+    mac_address: "AA:BB:CC:DD:EE:FF"
+    min_value: 10
+    max_value: 125
+    time:
+      id: water_time
+      name: "water counter"
+    value:
+      id: water_value
+      name: "Raw value"
+    height:
+      id: water_height
+      name: "Water height"
+    level:
+      id: water_level
+      name: "Water level"
+
+output:
+  platform: ledc
+  pin: 23
+  id: backlight_pwm
+
+light:
+  - platform: monochromatic
+    output: backlight_pwm
+    name: "Display Backlight"
+    id: back_light
+    restore_mode: ALWAYS_ON
+
+spi:
+  clk_pin: 14
+  mosi_pin: 13
+  miso_pin: 12
+
+font:
+  - file: "gfonts://Roboto"
+    id: font_name
+    size: 40
+
+color:
+  - id: my_red
+    red: 100%
+    green: 3%
+    blue: 5%
+
+display:
+  - platform: ili9xxx
+    model: ST7796
+    cs_pin: 15
+    dc_pin: 21
+    reset_pin: 22
+    lambda: |-
+      it.fill(Color::BLACK);
+      it.print(0, 0, id(font_name), id(my_red), TextAlign::TOP_LEFT, "E-Waterlevel:");
+      it.printf(0, 45, id(font_name), id(my_red), TextAlign::TOP_LEFT, "Time: %.2f s", id(water_time).state);
+      
+      const auto value = id(water_value).state;
+      it.printf(0, 90, id(font_name), id(my_red), TextAlign::TOP_LEFT, "Value: %.3f", value);
+      static float max_value;
+      if(!std::isnan(value) && max_value < value) {
+        max_value = value;
+      }
+      it.printf(0, 135, id(font_name), id(my_red), TextAlign::TOP_LEFT, "Max: %.3f", max_value);
+
+      it.printf(0, 180, id(font_name), id(my_red), TextAlign::TOP_LEFT, "Height: %.1f cm", id(water_height).state);
+      it.printf(0, 225, id(font_name), id(my_red), TextAlign::TOP_LEFT, "Level: %.1f %%", id(water_level).state);

@@ -1,0 +1,32 @@
+esphome:
+  name: ewaterlevel
+  
+external_components:
+  - source: github://Fabian-Schmidt/esphome-ewaterlevel
+    components: ["ewaterlevel_ble"]
+
+esp32:
+  board: esp32dev
+  
+logger:
+  level: INFO
+
+esp32_ble_tracker:
+  scan_parameters:
+    interval: 10ms
+    window: 10ms
+    active: false
+
+sensor:
+  - platform: ewaterlevel_ble
+    mac_address: "AA:BB:CC:DD:EE:FF"
+    min_value: 10
+    max_value: 125
+    height:
+      name: "Water Height"
+    level:
+      name: "Water Level"
+    battery_voltage:
+      name: "Battery Voltage"
+    battery_level:
+      name: "Battery Level"
