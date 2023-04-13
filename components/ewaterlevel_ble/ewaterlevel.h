@@ -62,60 +62,45 @@ struct ewaterlevel_data {  // NOLINT(readability-identifier-naming,altera-struct
    */
   u_int8_t state_c;
   u_int8_t empty;
-} __attribute__((packed));
 
-static inline bool validate_ewaterlevel_data_header(const ewaterlevel_data *data) {
-  return data->preamble[0] == 0x02 && data->preamble[1] == 0x01 && data->preamble[2] == 0x06 &&
-         data->preamble[3] == 0x17 && data->preamble[4] == 0xFF && data->header[0] == 'W' && data->header[1] == 'T' &&
-         data->header[2] == 'R' && data->header[3] == 'L';
-}
-
-static inline bool validate_ewaterlevel_data_state_a(const ewaterlevel_data *data) {
-  return data->state_a > 0x00 && data->state_a < 0x06;
-}
-
-static inline float ewaterlevel_data_counter(const ewaterlevel_data *data) {
-  return 0.001f * convert_big_endian(data->counter) * 4.0f;
-}
-
-static inline float ewaterlevel_data_battery_voltage(const ewaterlevel_data *data) {
-  return 0.001f * data->battery_voltage;
-}
-
-static inline float ewaterlevel_data_value(const ewaterlevel_data *data) { return 0.01f * 0.5f * data->value; }
-
-static inline float ewaterlevel_data_short_pin_length(const ewaterlevel_data *data) {
-  return 0.1f * data->short_pin_length;
-}
-
-static inline float ewaterlevel_data_long_pin_length(const ewaterlevel_data *data) {
-  return 0.1f * data->long_pin_length;
-}
-
-static inline const char *ewaterlevel_data_state_a(const ewaterlevel_data *data) {
-  switch (data->state_a) {
-    case 0x00:
-      return "Too Low";
-      break;
-    case 0x01:
-      return "Very Low";
-      break;
-    case 0x02:
-      return "Low";
-      break;
-    case 0x03:
-      return "Normal";
-      break;
-    case 0x04:
-      return "High";
-      break;
-    case 0x05:
-      return "Very High";
-      break;
-    default:
-      return "Too High";
+  inline bool validate_header() const {
+    return this->preamble[0] == 0x02 && this->preamble[1] == 0x01 && this->preamble[2] == 0x06 &&
+           this->preamble[3] == 0x17 && this->preamble[4] == 0xFF && this->header[0] == 'W' && this->header[1] == 'T' &&
+           this->header[2] == 'R' && this->header[3] == 'L';
   }
-}
+
+  inline bool validate_state_a() const { return this->state_a > 0x00 && this->state_a < 0x06; }
+
+  inline float read_counter() const { return 0.001f * convert_big_endian(this->counter) * 4.0f; }
+
+  inline float read_battery_voltage() const { return 0.001f * this->battery_voltage; }
+
+  inline float read_value() const { return 0.01f * 0.5f * this->value; }
+
+  inline float read_short_pin_length() const { return 0.1f * this->short_pin_length; }
+
+  inline float read_long_pin_length() const { return 0.1f * this->long_pin_length; }
+
+  inline const char *read_state_a() const {
+    switch (this->state_a) {
+      case 0x00:
+        return "Too Low";
+      case 0x01:
+        return "Very Low";
+      case 0x02:
+        return "Low";
+      case 0x03:
+        return "Normal";
+      case 0x04:
+        return "High";
+      case 0x05:
+        return "Very High";
+      default:
+        return "Too High";
+    }
+  }
+
+} __attribute__((packed));
 
 static inline float clamp_percentage(const float percent) {
   if (percent < 0.0f) {
@@ -158,12 +143,13 @@ class EWaterLevel : public Component, public esp32_ble_tracker::ESPBTDeviceListe
   sensor::Sensor *battery_voltage_{nullptr};
   sensor::Sensor *battery_level_{nullptr};
 
-  float ewaterlevel_data_water_height_in_cm_(const ewaterlevel_data *data);
+  float water_height_in_cm_(const ewaterlevel_data *data);
+
   float inline pin_length_(const ewaterlevel_data *data) {
     if (!std::isnan(this->length_) && this->length_ > 0.0f) {
       return this->length_;
     } else {
-      return ewaterlevel_data_long_pin_length(data);
+      return data->read_long_pin_length();
     }
   };
 };

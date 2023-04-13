@@ -50,7 +50,7 @@ bool EWaterLevel::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
   uint8_t len = param.adv_data_len + param.scan_rsp_len;
   if (len == sizeof(ewaterlevel_data)) {
     const ewaterlevel_data *data = (ewaterlevel_data *) payload;
-    if (!validate_ewaterlevel_data_header(data)) {
+    if (!data->validate_header()) {
       return false;
     }
 
@@ -62,37 +62,40 @@ bool EWaterLevel::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
              format_hex_pretty(param.ble_adv + 9, param.adv_data_len + param.scan_rsp_len - 10).c_str());
     ESP_LOGD(TAG, "[%s] HW: V%u.%u SW: V%u.%u, ShortPin: %.1fcm, LongPin: %.1fcm", device.address_str().c_str(),
              data->version_hw_high, data->version_hw_low, data->version_sw_high, data->version_sw_low,
-             ewaterlevel_data_short_pin_length(data), ewaterlevel_data_long_pin_length(data->long_pin_length));
+             data->read_short_pin_length(), data->read_long_pin_length());
     ESP_LOGD(TAG, "[%s] State_A: %s, State_B: %s, State_C: %s", device.address_str().c_str(),
              format_hex(&data->state_a, 1).c_str(), format_hex(&data->state_b, 1).c_str(),
              format_hex(&data->state_c, 1).c_str());
-    ESP_LOGI(TAG, "[%s] Time: %.2f, Bat: %.3fV, Value: %.3f", device.address_str().c_str(),
-             ewaterlevel_data_counter(data), ewaterlevel_data_battery_voltage(data), ewaterlevel_data_value(data));
+    ESP_LOGI(TAG, "[%s] Time: %.2f, Bat: %.3fV, Value: %.3f", device.address_str().c_str(), data->read_counter(),
+             data->read_battery_voltage(), data->read_value());
     ESP_LOGI(TAG, "[%s] Waterlevel: %.1fcm, Percentage: %.1f%%", device.address_str().c_str(),
-             this->ewaterlevel_data_water_height_in_cm_(data),
-             clamp_percentage(ewaterlevel_data_water_height_in_cm_(data) / this->pin_length_(data) * 100.0f));
+             this->water_height_in_cm_(data),
+             clamp_percentage(this->water_height_in_cm_(data) / this->pin_length_(data) * 100.0f));
 
     if (this->time_ != nullptr) {
-      this->time_->publish_state(ewaterlevel_data_counter(data));
+      this->time_->publish_state(data->read_counter());
     }
 
     if (this->value_ != nullptr) {
-      this->value_->publish_state(ewaterlevel_data_value(data));
+      this->value_->publish_state(data->read_value());
     }
+
     if (this->height_ != nullptr) {
-      this->height_->publish_state(ewaterlevel_data_water_height_in_cm_(data));
+      this->height_->publish_state(this->water_height_in_cm_(data));
     }
+
     if (this->level_ != nullptr) {
-      const auto height_in_cm = ewaterlevel_data_water_height_in_cm_(data);
+      const auto height_in_cm = this->water_height_in_cm_(data);
       const auto pin_length = this->pin_length_(data);
       this->level_->publish_state(clamp_percentage(height_in_cm / pin_length * 100.0f));
     }
 
     if (this->battery_voltage_ != nullptr) {
-      this->battery_voltage_->publish_state(ewaterlevel_data_battery_voltage(data));
+      this->battery_voltage_->publish_state(data->read_battery_voltage());
     }
+
     if (this->battery_level_ != nullptr) {
-      const auto battery_volt = ewaterlevel_data_battery_voltage(data);
+      const auto battery_volt = data->read_battery_voltage();
       if (std::isnan(battery_volt)) {
         this->battery_level_->publish_state(NAN);
       } else {
@@ -106,14 +109,16 @@ bool EWaterLevel::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
   return false;
 }
 
-float EWaterLevel::ewaterlevel_data_water_height_in_cm_(const ewaterlevel_data *data) {
-  if (!validate_ewaterlevel_data_state_a(data)) {
+float EWaterLevel::water_height_in_cm_(const ewaterlevel_data *data) {
+  if (!data->validate_state_a()) {
     return 0.0f;
   }
-  const auto value = ewaterlevel_data_value(data);
+
+  const auto value = data->read_value();
   const auto pin_length = this->pin_length_(data);
   const auto scaling_factor = (this->max_value_ - this->min_value_) / (pin_length - this->min_length_);
   const auto height = (value - this->min_value_) / scaling_factor + this->min_length_;
+
   if (height < 0.0f) {
     return 0.0f;
   } else if (height > pin_length) {
