@@ -12,7 +12,7 @@ static const char *const TAG = "ewaterlevel_ble";
 
 void EWaterLevel::dump_config() {
   ESP_LOGCONFIG(TAG, "E-Waterlevel");
-  ESP_LOGCONFIG(TAG, "  Address: 0x%02X", format_hex(&this->address_, 6).c_str());
+  ESP_LOGCONFIG(TAG, "  Address: %s", format_ble_address_pretty(this->address_).c_str());
   ESP_LOGCONFIG(TAG, "  Min value: %.3f", this->min_value_);
   ESP_LOGCONFIG(TAG, "  Max value: %.3f", this->max_value_);
   if (!std::isnan(this->length_) && this->length_ > 0.0f) {

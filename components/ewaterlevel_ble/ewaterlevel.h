@@ -102,6 +102,11 @@ struct ewaterlevel_data {  // NOLINT(readability-identifier-naming,altera-struct
 
 } __attribute__((packed));
 
+static inline std::string format_ble_address_pretty(uint64_t address) {
+  u_int8_t *mac = (uint8_t *) &address;
+  return str_snprintf("%02X:%02X:%02X:%02X:%02X:%02X", 17, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+}
+
 static inline float clamp_percentage(const float percent) {
   if (percent < 0.0f) {
     return 0.0f;
